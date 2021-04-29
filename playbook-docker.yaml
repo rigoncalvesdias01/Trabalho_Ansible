@@ -1,0 +1,58 @@
+- hosts: local
+  gather_facts: False
+  debugger: on_skipped
+
+  tasks:
+  - name: Instalando docker
+    apt:
+      name: docker.io
+      update_cache: yes
+      state: present
+  
+  - name: Instalando docker-compose
+    apt:
+      name: docker-compose
+      update_cache: yes
+      state: present
+
+  - name: Habilitar docker no boot
+    service:
+        name: docker
+        enabled: yes
+        state: started
+
+  - name: Copiando artefatos para o servidor
+    copy:
+       src: "{{ item }}"
+       dest: "/root/{{ item }}"
+       owner: root
+       group: root
+    with_items:
+      - docker-compose.yml
+      - Dockerfile
+      - app.py
+      - requirements.txt 
+
+  - name: Construindo a imagem
+    docker_image:
+      build:      
+        path: /vagrant/ansible/exemplo_2/files
+        pull: yes
+      name: "{{ docker_image_name }}"  
+      tag: "1.0"
+      source: build
+      
+  - template:
+      src: docker-compose.yml.j2
+      dest: /root/docker-compose.yml
+      owner: root
+      group: root
+      mode: 0644      
+
+  - name: Executando o docker-compose
+    command: docker-compose up -d
+    args:
+       chdir: /root/
+    register: docker_compose_up
+    tags:
+      - docker-start
